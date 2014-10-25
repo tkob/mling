@@ -1,0 +1,9 @@
+curses: curses.sml main.sml
+	mlton -default-ann 'allowFFI true' -link-opt -lcurses curses.mlb 
+
+curses.sml: /usr/include/curses.h
+	mling Curses /usr/include/curses.h > curses.sml
+
+clean:
+	rm curses
+	rm curses.sml

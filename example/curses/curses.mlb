@@ -1,0 +1,7 @@
+$(SML_LIB)/basis/basis.mlb
+$(SML_LIB)/basis/mlton.mlb
+$(SML_LIB)/basis/c-types.mlb
+
+curses.sml
+main.sml
+boot.sml

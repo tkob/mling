@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from __future__ import print_function
-import sys
+from optparse import OptionParser
+import sys, os.path
 
 from clang.cindex import Index
 from clang.cindex import Config
@@ -31,9 +32,9 @@ class MLtonStrategy:
             "POINTER": "MLton.Pointer.t"
             }
 
-    def __init__(self, struct_name):
+    def __init__(self, prefix):
         self.vals = []
-        self.struct_name = struct_name
+        self.prefix = prefix
 
     def map_ty(self, ty):
         if ty.kind == TypeKind.POINTER:
@@ -72,14 +73,41 @@ class MLtonStrategy:
             self.process_decl(decl)
 
     def spell_out(self):
-      print("structure %s = struct" % self.struct_name)
+      print("structure %s = struct" % self.prefix)
       for val in self.vals:
           print("  " + val)
       print("end")
 
-index = Index.create()
-tu = index.parse(sys.argv[2], args=sys.argv[3:])
+def make_strategy(sml, prefix):
+    if sml == "mlton":
+        return MLtonStrategy(prefix)
+    else:
+        raise ValueError("Unknown SML implementation: %s" % sml)
 
-strategy = MLtonStrategy(sys.argv[1])
+def parse_opts():
+    usage = "usage: %prog [options] file [clang-options]"
+    parser = OptionParser(usage=usage)
+    parser.add_option("-p", "--prefix", dest="prefix", help="use PREFIX as the structure name")
+    parser.add_option("-s", "--sml", dest="sml", default="mlton", help="sml implementation [mlton|poly]")
+    (options, args) = parser.parse_args()
+
+    if len(args) < 1:
+        parser.error("incorrect number of arguments")
+    file = args[0]
+    clang_opts = args[1:]
+
+    if options.prefix == None:
+        basename = os.path.basename(file)
+        (name, ext) = os.path.splitext(basename)
+        options.prefix = name.title()
+
+    return (file, options, args, clang_opts)
+
+(file, options, args, clang_opts) = parse_opts()
+
+index = Index.create()
+tu = index.parse(file, args=clang_opts)
+
+strategy = make_strategy(options.sml, options.prefix)
 strategy.process_tu(tu.cursor)
 strategy.spell_out()

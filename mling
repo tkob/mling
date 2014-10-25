@@ -7,68 +7,79 @@ from clang.cindex import Config
 from clang.cindex import TypeKind
 from clang.cindex import CursorKind
 
-ty_dict = {
-        "VOID": "unit",
-        "CHAR_S": "Int8.int",
-        "INT": "Int32.int",
-        "SHORT": "Int16.int",
-        "LONG": "Int64.int",
-        "LONGLONG": "Int64.int",
-        "UINT": "Word32.word",
-        "USHORT": "Word16.word",
-        "ULONG": "Word64.word",
-        "ULONGLONG": "Word64.word",
-        "DOUBLE": "Real64.real",
-        "BOOL": "bool",
-        "ENUM": "int",
-        "POINTER": "MLton.Pointer.t"
-        }
-
 class UnsupportedException(Exception):
     def __init__(self, doc, message):
         self.__doc__ = doc
         self.message = message
         pass
 
-def map_ty(ty):
-    if ty.kind == TypeKind.POINTER:
-        if ty.get_pointee().kind == TypeKind.CHAR_S:
-            return "string"
-        else:
-            return "MLton.Pointer.t"
-    elif ty.kind == TypeKind.TYPEDEF:
-        canonical = ty.get_canonical()
-        return map_ty(canonical)
-    elif ty.kind == TypeKind.UNEXPOSED:
-        raise UnsupportedException("unexposed type", ty.kind.name)
-    else:
-        return ty_dict[ty.kind.name]
+class MLtonStrategy:
+    ty_dict = {
+            "VOID": "unit",
+            "CHAR_S": "Int8.int",
+            "INT": "Int32.int",
+            "SHORT": "Int16.int",
+            "LONG": "Int64.int",
+            "LONGLONG": "Int64.int",
+            "UINT": "Word32.word",
+            "USHORT": "Word16.word",
+            "ULONG": "Word64.word",
+            "ULONGLONG": "Word64.word",
+            "DOUBLE": "Real64.real",
+            "BOOL": "bool",
+            "ENUM": "int",
+            "POINTER": "MLton.Pointer.t"
+            }
 
-def process_decl(decl):
-    if decl.kind.name == "FUNCTION_DECL":
-        n = decl.spelling
-        if n.startswith("_"):
-            print("unrendered: "+n, file=sys.stderr)
-            return
-        args_ty = [a.type for a in decl.get_arguments()]
-        result_ty = decl.result_type
-        try:
-            if len(args_ty) == 0:
-                args_str = "unit"
+    def __init__(self, struct_name):
+        self.vals = []
+        self.struct_name = struct_name
+
+    def map_ty(self, ty):
+        if ty.kind == TypeKind.POINTER:
+            if ty.get_pointee().kind == TypeKind.CHAR_S:
+                return "string"
             else:
-                args_str = "(" + " * ".join([map_ty(a) for a in args_ty]) + ")"
-            result_str = map_ty(result_ty)
-            print("val %s = _import \"%s\" public: %s -> %s;" % (n, n, args_str, result_str))
-        except Exception, e:
-            print("unrendered: "+n+" "+e.__doc__+" "+e.message, file=sys.stderr)
+                return "MLton.Pointer.t"
+        elif ty.kind == TypeKind.TYPEDEF:
+            canonical = ty.get_canonical()
+            return self.map_ty(canonical)
+        elif ty.kind == TypeKind.UNEXPOSED:
+            raise UnsupportedException("unexposed type", ty.kind.name)
+        else:
+            return MLtonStrategy.ty_dict[ty.kind.name]
 
-def process_tu(tu):
-    for decl in tu.get_children():
-        process_decl(decl)
+    def process_decl(self, decl):
+        if decl.kind.name == "FUNCTION_DECL":
+            n = decl.spelling
+            if n.startswith("_"):
+                print("unrendered: "+n, file=sys.stderr)
+                return
+            args_ty = [a.type for a in decl.get_arguments()]
+            result_ty = decl.result_type
+            try:
+                if len(args_ty) == 0:
+                    args_str = "unit"
+                else:
+                    args_str = "(" + " * ".join([self.map_ty(a) for a in args_ty]) + ")"
+                result_str = self.map_ty(result_ty)
+                self.vals.append("val %s = _import \"%s\" public: %s -> %s;" % (n, n, args_str, result_str))
+            except Exception, e:
+                print("unrendered: "+n+" "+e.__doc__+" "+e.message, file=sys.stderr)
+
+    def process_tu(self, tu):
+        for decl in tu.get_children():
+            self.process_decl(decl)
+
+    def spell_out(self):
+      print("structure %s = struct" % self.struct_name)
+      for val in self.vals:
+          print("  " + val)
+      print("end")
 
 index = Index.create()
-
 tu = index.parse(sys.argv[2], args=sys.argv[3:])
-print("structure %s = struct" % sys.argv[1])
-process_tu(tu.cursor)
-print("end")
+
+strategy = MLtonStrategy(sys.argv[1])
+strategy.process_tu(tu.cursor)
+strategy.spell_out()

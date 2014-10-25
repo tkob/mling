@@ -5,5 +5,5 @@ curses.sml: /usr/include/curses.h
 	mling Curses /usr/include/curses.h > curses.sml
 
 clean:
-	rm curses
-	rm curses.sml
+	rm -f curses
+	rm -f curses.sml

@@ -1,0 +1,10 @@
+all: curses
+curses: curses.sml main.sml 
+	expect -f ./polybuild.tcl curses curses.sml main.sml
+	polyc -o curses curses.o
+
+curses.sml: /usr/include/curses.h
+	mling --sml poly --so libncurses.so.5 Curses /usr/include/curses.h > curses.sml
+
+clean:
+	rm -f curses curses.o curses.sml

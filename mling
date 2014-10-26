@@ -32,9 +32,9 @@ class MLtonStrategy:
             "POINTER": "MLton.Pointer.t"
             }
 
-    def __init__(self, prefix):
+    def __init__(self, options):
         self.vals = []
-        self.prefix = prefix
+        self.prefix = options.prefix
 
     def map_ty(self, ty):
         if ty.kind == TypeKind.POINTER:
@@ -79,9 +79,79 @@ class MLtonStrategy:
           print("  " + val)
       print("end")
 
-def make_strategy(sml, prefix):
-    if sml == "mlton":
-        return MLtonStrategy(prefix)
+class PolyMLStrategy:
+    ty_dict = {
+            "VOID": "VOID",
+            "CHAR_S": "CHAR",
+            "INT": "INT",
+            "SHORT": "SHORT",
+            "LONG": "LONG",
+            "LONGLONG": "LONG",
+            "UINT": "INT",
+            "USHORT": "SHORT",
+            "ULONG": "LONG",
+            "ULONGLONG": "LONG",
+            "DOUBLE": "DOUBLE",
+            "BOOL": "BOOL",
+            "ENUM": "INT",
+            "POINTER": "POINTER"
+            }
+
+    def __init__(self, options):
+        self.vals = []
+        self.prefix = options.prefix
+        self.so = options.so
+
+    def map_ty(self, ty):
+        if ty.kind == TypeKind.POINTER:
+            if ty.get_pointee().kind == TypeKind.CHAR_S:
+                return "STRING"
+            else:
+                return "POINTER"
+        elif ty.kind == TypeKind.TYPEDEF:
+            canonical = ty.get_canonical()
+            return self.map_ty(canonical)
+        elif ty.kind == TypeKind.UNEXPOSED:
+            raise UnsupportedException("unexposed type", ty.kind.name)
+        else:
+            return PolyMLStrategy.ty_dict[ty.kind.name]
+
+    def process_decl(self, decl):
+        if decl.kind.name == "FUNCTION_DECL":
+            n = decl.spelling
+            if n.startswith("_"):
+                print("unrendered: "+n, file=sys.stderr)
+                return
+            args_ty = [a.type for a in decl.get_arguments()]
+            result_ty = decl.result_type
+            try:
+                if len(args_ty) == 0:
+                    args_str = "()"
+                else:
+                    args_str = "(" + ", ".join([self.map_ty(a) for a in args_ty]) + ")"
+                result_str = self.map_ty(result_ty)
+                self.vals.append("val %s = call%d (get \"%s\") %s %s" % (n, len(args_ty), n, args_str, result_str))
+            except Exception, e:
+                print("unrendered: "+n+" "+e.__doc__+" "+e.message, file=sys.stderr)
+
+    def process_tu(self, tu):
+        for decl in tu.get_children():
+            self.process_decl(decl)
+
+    def spell_out(self):
+      print("structure %s = struct" % self.prefix)
+      print("  open CInterface")
+      print("  val NULL = CInterface.null")
+      print("  val get = load_sym (load_lib \"%s\")" % self.so)
+      for val in self.vals:
+          print("  " + val)
+      print("end")
+
+def make_strategy(options):
+    if options.sml == "mlton":
+        return MLtonStrategy(options)
+    elif options.sml == "poly":
+        return PolyMLStrategy(options)
     else:
         raise ValueError("Unknown SML implementation: %s" % sml)
 
@@ -90,6 +160,7 @@ def parse_opts():
     parser = OptionParser(usage=usage)
     parser.add_option("-p", "--prefix", dest="prefix", help="use PREFIX as the structure name")
     parser.add_option("-s", "--sml", dest="sml", default="mlton", help="sml implementation [mlton|poly]")
+    parser.add_option("--so", dest="so", default="", help="shared object to be dlopened (for Poly/ML)")
     (options, args) = parser.parse_args()
 
     if len(args) < 1:
@@ -109,6 +180,6 @@ def parse_opts():
 index = Index.create()
 tu = index.parse(file, args=clang_opts)
 
-strategy = make_strategy(options.sml, options.prefix)
+strategy = make_strategy(options)
 strategy.process_tu(tu.cursor)
 strategy.spell_out()

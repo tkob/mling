@@ -27,5 +27,6 @@ in
   );
   delwin mainWin;
   endwin ();
-  refresh ()
+  refresh ();
+  ()
 end

@@ -74,6 +74,7 @@ class MLtonStrategy:
 
     def spell_out(self):
       print("structure %s = struct" % self.prefix)
+      print("  val NULL = MLton.Pointer.null")
       for val in self.vals:
           print("  " + val)
       print("end")

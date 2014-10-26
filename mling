@@ -32,9 +32,9 @@ class MLtonStrategy:
             "POINTER": "MLton.Pointer.t"
             }
 
-    def __init__(self, prefix):
+    def __init__(self, options):
         self.vals = []
-        self.prefix = prefix
+        self.prefix = options.prefix
 
     def map_ty(self, ty):
         if ty.kind == TypeKind.POINTER:
@@ -79,9 +79,9 @@ class MLtonStrategy:
           print("  " + val)
       print("end")
 
-def make_strategy(sml, prefix):
-    if sml == "mlton":
-        return MLtonStrategy(prefix)
+def make_strategy(options):
+    if options.sml == "mlton":
+        return MLtonStrategy(options)
     else:
         raise ValueError("Unknown SML implementation: %s" % sml)
 
@@ -109,6 +109,6 @@ def parse_opts():
 index = Index.create()
 tu = index.parse(file, args=clang_opts)
 
-strategy = make_strategy(options.sml, options.prefix)
+strategy = make_strategy(options)
 strategy.process_tu(tu.cursor)
 strategy.spell_out()

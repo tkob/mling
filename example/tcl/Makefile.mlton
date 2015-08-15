@@ -1,0 +1,9 @@
+tcl-mlton: tcl-mlton.sml tcl-mlton-ffi.sml boot.sml
+	mlton -default-ann 'allowFFI true' -link-opt -ltcl tcl-mlton.mlb 
+
+tcl-mlton-ffi.sml: /usr/include/tcl/tcl.h
+	mling /usr/include/tcl/tcl.h > tcl-mlton-ffi.sml
+
+clean:
+	rm -f tcl-mlton-ffi.sml
+	rm -f tcl-mlton

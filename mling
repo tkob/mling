@@ -170,7 +170,7 @@ def parse_opts():
 
     if options.prefix == None:
         basename = os.path.basename(file)
-        (name, ext) = os.path.splitext(basename)
+        (name, _) = os.path.splitext(basename)
         options.prefix = name.title()
 
     return (file, options, args, clang_opts)

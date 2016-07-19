@@ -153,7 +153,7 @@ def make_strategy(options):
     elif options.sml == "poly":
         return PolyMLStrategy(options)
     else:
-        raise ValueError("Unknown SML implementation: %s" % sml)
+        raise ValueError("Unknown SML implementation: %s" % options.sml)
 
 def parse_opts():
     usage = "usage: %prog [options] file [clang-options]"

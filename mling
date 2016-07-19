@@ -10,9 +10,9 @@ from clang.cindex import CursorKind
 
 class UnsupportedException(Exception):
     def __init__(self, doc, message):
+        Exception.__init__(self)
         self.__doc__ = doc
         self.message = message
-        pass
 
 class MLtonStrategy:
     ty_dict = {
